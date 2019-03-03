@@ -1,0 +1,7 @@
+{
+  "channels": ["#nodejs"],
+  "nick": "ghci-test",
+  "server": "irc.freenode.net",
+  "stack": "stack"
+}
+

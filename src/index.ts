@@ -1,13 +1,16 @@
 import { Client } from 'irc';
 import { getProcess } from './ghci'
+import { readFileSync } from 'fs';
 
-const config = {
-  channels: ['##ircbottesting'],
-  nick: 'ghci',
-  server: 'irc.wobscale.website',
-  stack: '/home/aaron/.local/bin/stack'
+
+interface ConfigT {
+  channels: string[];
+  nick: string;
+  server: string;
+  stack: string;
 };
 
+const config: ConfigT = JSON.parse(readFileSync('config.json', 'utf8'));
 let ghciChild = null;
 
 const c = new Client(
@@ -16,15 +19,38 @@ const c = new Client(
    }
 );
 
-const procHandler = (to: string) => (data: string) => {
-  const st = data.toString();
-
-  if (/^.?P.?r.?e.?l.?u.?d.?e.?>.?\s*/.test(st)) {
-    return;
+/*
+ *  Returns any newline-terminated lines in "send", returns the remainder in buff.
+ */
+const splitString = (i: string): { send: string, buff: string } => {
+  const matches = i.match(/^(.+\n\r?)([^\n\r]*)$/);
+  if (matches === null) {
+    return {
+      buff: '',
+      send: i,
+    };
   }
 
-  console.log(st);
-  c.say(to, st);
+  return {
+    buff: matches[2],
+    send: matches[1],
+  };
+};
+
+const procHandler = (to: string) => {
+  let pooledData = '';
+
+  return (data: string) => {
+    const { send, buff } = splitString(pooledData+data.toString());
+    pooledData = buff;
+
+    console.log(send);
+    if (data.match(/^Prelude> ?$/)) {
+      return;
+    }
+
+    c.say(to, send);
+  }
 };
 
 c.addListener('message', (_, to, message) => {
